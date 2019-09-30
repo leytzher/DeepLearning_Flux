@@ -4,8 +4,11 @@ using FileIO
 using Glob
 using Mmap
 using ImageShow
+using Base.Iterators: partition
+using Flux: onehotbatch
 
-# Read CIFAR10 data.
+
+# Read CIFAR10 data.(https://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz)
 # Data is given in binary format where the first byte is the label of
 # the first image which is a number between 0 and 9. The next 3072 bytes
 # are the values of the pixels. The first 1024 are R, the next 1024 are G and
@@ -23,17 +26,29 @@ path = "./cifar-10-batches-bin/"
 trainbatch = readdir(glob"data_batch_*.bin",path)
 testbatch = readdir(glob"test_batch.bin",path)
 
+
 # read files and prepare train and test datasets
 for file in trainbatch
     if  file==trainbatch[1]
-        global X_train, Y_train = loadBatches(file)
+        global X_t, Y_train = loadBatches(file)
     else
         data = loadBatches(file)
-        append!(X_train,data[1])
+        append!(X_t,data[1])
         append!(Y_train,data[2])
     end
 end
 
-X_test,Y_test = loadBatches(testbatch[1])
+# Reshape Xt
+X_train =[]
+for i in 1:size(X_t)[1]
+    append!(X_train,X_t[i])
+end
+X_train = Float64.(reshape(X_train,32,32,3,:))
 
-# Build NNet
+X_tt,Y_test = loadBatches(testbatch[1])
+
+X_test =[]
+for i in 1:size(X_tt)[1]
+    append!(X_test,X_tt[i])
+end
+X_test = Float64.(reshape(X_test,32,32,3,:))
