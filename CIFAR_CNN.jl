@@ -74,3 +74,62 @@ end
 # Create minibatches
 train_set = make_minibatch(X_train,Y_train,128);
 test_set = make_minibatch(X_test,Y_test,1);
+
+
+# VGG16
+model = Chain(
+    Conv((3,3), 3=>64,relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(64),
+    Dropout(0.3),
+
+    Conv((3,3), 3=>64,relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(64),
+    x -> maxpool(x,(2,2)),
+
+    Conv((3,3), 64=>128,relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(128),
+    Dropout(0.3),
+
+    Conv((3,3), 128=>128,relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(128),
+    x -> maxpool(x,(2,2)),
+
+    Conv((3,3), 128=>256,relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(256),
+    Dropout(0.4),
+    Conv((3,3),256=>256, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(256),
+    Dropout(0.4),
+    Conv((3,3),256=>256, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(256),
+    x -> maxpool(x,(2,2)),
+
+    Conv((3,3), 256=>512,relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(512),
+    Dropout(0.4),
+    Conv((3,3),512=>512, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(256),
+    Dropout(0.4),
+    Conv((3,3),512=>512, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(512),
+    x -> maxpool(x,(2,2)),
+
+    Conv((3,3), 512=>512,relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(512),
+    Dropout(0.4),
+    Conv((3,3),512=>512, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(512),
+    Dropout(0.4),
+    Conv((3,3),512=>512, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(512),
+    x -> maxpool(x,(2,2)),
+
+    x->reshape(x,:,size(x,4)),
+
+    Dense(512,4096,relu),
+    Dropout(0.5),
+    Dense(4096,4096,relu),
+    Dropout(0.5),
+    Dense(4096,10),
+    softmax
+)
