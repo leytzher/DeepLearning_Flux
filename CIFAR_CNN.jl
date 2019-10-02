@@ -71,5 +71,6 @@ function make_minibatch(X,Y,batch_size)
     return (minibatch_X,minibatch_Y)
 end
 
+# Create minibatches
 train_set = make_minibatch(X_train,Y_train,128);
 test_set = make_minibatch(X_test,Y_test,1);
