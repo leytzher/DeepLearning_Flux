@@ -5,7 +5,7 @@ using Glob
 using Mmap
 using ImageShow
 using Base.Iterators: partition
-using Flux: onehotbatch
+using Flux: onehotbatch,onecold, crossentropy, throttle
 
 
 # Read CIFAR10 data.(https://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz)
@@ -52,3 +52,41 @@ for i in 1:size(X_tt)[1]
     append!(X_test,X_tt[i])
 end
 X_test = Float64.(reshape(X_test,32,32,3,:))
+
+# One-hot encoding
+Y_train = onehotbatch(Y_train,0:9)
+Y_test = onehotbatch(Y_test,0:9)
+
+# Build VGG16 model
+vgg16 = Chain(
+    Conv((3,3),3 => 64, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(64),
+    Conv((3,3),64 => 64, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(64),
+    x -> maxpool(x,(2,2)),
+    Conv((3,3),64 => 128, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(128),
+    Conv((3,3),128 => 128, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(128),
+    x -> maxpool(x,(2,2)),
+    Conv((3,3),128 => 256, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(256),
+    Conv((3,3),256 => 256, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(256),
+    Conv((3,3),256 => 256, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(256),
+    x -> maxpool(x,(2,2)),
+    Conv((3,3),256 => 512, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(512),
+    Conv((3,3),512 => 512, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(256),
+    Conv((3,3),512 => 512, relu, pad=(1,1), stride=(1,1)),
+    BatchNorm(512),
+    x -> maxpool(x,(2,2)),
+    x -> reshape(x,:,size(x,4)),
+    Dense(512,4096,relu),
+    Dropout(0.5),
+    Dense(4096,4096, relu),
+    Dropout(0.5),
+    Dense(4096,10),
+    softmax)
