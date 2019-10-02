@@ -77,7 +77,7 @@ test_set = make_minibatch(X_test,Y_test,1);
 
 
 # VGG16
-model = Chain(
+model() = Chain(
     Conv((3,3), 3=>64,relu, pad=(1,1), stride=(1,1)),
     BatchNorm(64),
     Dropout(0.3),
@@ -133,3 +133,9 @@ model = Chain(
     Dense(4096,10),
     softmax
 )
+
+# Make model
+m = model()
+
+loss(x,y) = crossentropy(m(x),y)
+opt = ADAM()
