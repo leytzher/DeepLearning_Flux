@@ -43,7 +43,7 @@ X_train =[]
 for i in 1:size(X_t)[1]
     append!(X_train,X_t[i])
 end
-X_train = Float64.(reshape(X_train,32,32,3,:))
+X_train = Float32.(reshape(X_train,32,32,3,:))
 
 X_tt,Y_test = loadBatches(testbatch[1])
 
@@ -51,15 +51,11 @@ X_test =[]
 for i in 1:size(X_tt)[1]
     append!(X_test,X_tt[i])
 end
-X_test = Float64.(reshape(X_test,32,32,3,:))
-
-# One-hot encoding
-Y_train = onehotbatch(Y_train,0:9)
-Y_test = onehotbatch(Y_test,0:9)
+X_test = Float32.(reshape(X_test,32,32,3,:))
 
 
 function make_partition_index(X,batch_size)
-    idx = partition(1:Int64(length(X)/(32*32*3)),batch_size)
+    idx = partition(1:Int32(length(X)/(32*32*3)),batch_size)
     indices = [(minimum(i),maximum(i)) for i in idx]
     return indices
 end
@@ -68,7 +64,8 @@ function make_minibatch(X,Y,batch_size)
     indices = [i for i in make_partition_index(X,batch_size)]
     minibatch_X = [X[:,:,:,indices[i][1]:indices[i][2]] for i in 1:length(indices)]
     minibatch_Y = [Y[indices[i][1]:indices[i][2]] for i in 1:length(indices)]
-    return (minibatch_X,minibatch_Y)
+    dataset = [(minibatch_X[i],onehotbatch(minibatch_Y[i],0:9)) for i in 1:length(indices)]
+    return dataset
 end
 
 # Create minibatches
@@ -77,58 +74,52 @@ test_set = make_minibatch(X_test,Y_test,1);
 
 
 # VGG16
+# VGG16
 model() = Chain(
+    # Size 32x32
     Conv((3,3), 3=>64,relu, pad=(1,1), stride=(1,1)),
     BatchNorm(64),
     Dropout(0.3),
-
-    Conv((3,3), 3=>64,relu, pad=(1,1), stride=(1,1)),
+    # Size 32x32
+    Conv((3,3), 64=>64,relu, pad=(1,1), stride=(1,1)),
     BatchNorm(64),
-    x -> maxpool(x,(2,2)),
-
+    # Size 32x32
+    x -> MaxPool((2,2))(x),
+    # Size 16x16
     Conv((3,3), 64=>128,relu, pad=(1,1), stride=(1,1)),
     BatchNorm(128),
     Dropout(0.3),
-
+    # Size 16x16
     Conv((3,3), 128=>128,relu, pad=(1,1), stride=(1,1)),
     BatchNorm(128),
-    x -> maxpool(x,(2,2)),
-
+    x -> MaxPool((2,2))(x),
+    # Size 8x8
     Conv((3,3), 128=>256,relu, pad=(1,1), stride=(1,1)),
     BatchNorm(256),
     Dropout(0.4),
+    # Size 8x8
     Conv((3,3),256=>256, relu, pad=(1,1), stride=(1,1)),
     BatchNorm(256),
     Dropout(0.4),
+    # Size 8x8
     Conv((3,3),256=>256, relu, pad=(1,1), stride=(1,1)),
     BatchNorm(256),
-    x -> maxpool(x,(2,2)),
-
+    x -> MaxPool((2,2))(x),
+    # Size 4x4
     Conv((3,3), 256=>512,relu, pad=(1,1), stride=(1,1)),
     BatchNorm(512),
     Dropout(0.4),
-    Conv((3,3),512=>512, relu, pad=(1,1), stride=(1,1)),
-    BatchNorm(256),
-    Dropout(0.4),
-    Conv((3,3),512=>512, relu, pad=(1,1), stride=(1,1)),
-    BatchNorm(512),
-    x -> maxpool(x,(2,2)),
-
-    Conv((3,3), 512=>512,relu, pad=(1,1), stride=(1,1)),
-    BatchNorm(512),
-    Dropout(0.4),
+    # Size 4x4
     Conv((3,3),512=>512, relu, pad=(1,1), stride=(1,1)),
     BatchNorm(512),
     Dropout(0.4),
+    # Size 4x4
     Conv((3,3),512=>512, relu, pad=(1,1), stride=(1,1)),
     BatchNorm(512),
-    x -> maxpool(x,(2,2)),
-
-    x->reshape(x,:,size(x,4)),
-
-    Dense(512,4096,relu),
-    Dropout(0.5),
-    Dense(4096,4096,relu),
+    x -> MaxPool((2,2))(x),
+    # Size 2x2
+    x -> reshape(x,:,size(x,4)),
+    Dense(2048,4096,relu),
     Dropout(0.5),
     Dense(4096,10),
     softmax
@@ -138,4 +129,7 @@ model() = Chain(
 m = model()
 
 loss(x,y) = crossentropy(m(x),y)
+accuracy(x,y) = mean(onecold(m(x),1:10) .== onecold(y,1:10))
+
 opt = ADAM()
+Flux.train!(loss, params(m),train_set,opt)
