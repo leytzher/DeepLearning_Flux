@@ -113,17 +113,13 @@ model() = Chain(
     Conv((3,3),512=>512, relu, pad=(1,1), stride=(1,1)),
     BatchNorm(512),
     Dropout(0.4),
-    # Size 4x4
-    Conv((3,3),512=>512, relu, pad=(1,1), stride=(1,1)),
-    BatchNorm(512),
-    x -> MaxPool((2,2))(x),
     # Size 2x2
     x -> reshape(x,:,size(x,4)),
-    Dense(2048,4096,relu),
+    Dense(8192,4096,relu),
     Dropout(0.5),
     Dense(4096,10),
     softmax
-)
+)|>gpu
 
 # Make model
 m = model()
