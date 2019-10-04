@@ -6,7 +6,7 @@ using Mmap
 using ImageShow
 using Base.Iterators: partition
 using Flux: onehotbatch,onecold, crossentropy, throttle
-
+using Statistics:mean
 
 # Read CIFAR10 data.(https://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz)
 # Data is given in binary format where the first byte is the label of
@@ -26,7 +26,7 @@ path = "./cifar-10-batches-bin/"
 trainbatch = readdir(glob"data_batch_*.bin",path)
 testbatch = readdir(glob"test_batch.bin",path)
 
-
+@show("[INFO] Reading Data...")
 # read files and prepare train and test datasets
 for file in trainbatch
     if  file==trainbatch[1]
@@ -68,13 +68,14 @@ function make_minibatch(X,Y,batch_size)
     return dataset
 end
 
+@show("[INFO] Creating minibatches...")
 # Create minibatches
 train_set = gpu.(make_minibatch(X_train,Y_train,128))
 test_set = gpu.(make_minibatch(X_test,Y_test,1))
-
+allowscalar(false)
 
 # VGG16
-# VGG16
+@show("[INFO] Building CNN...")
 model() = Chain(
     # Size 32x32
     Conv((3,3), 3=>64,relu, pad=(1,1), stride=(1,1)),
@@ -122,6 +123,7 @@ model() = Chain(
 )|>gpu
 
 # Make model
+
 m = model()
 
 loss(x,y) = crossentropy(m(x),y)
@@ -137,6 +139,7 @@ evalcb = throttle(()-> @show(accuracy(test_set)),10)
 
 opt = ADAM()
 
+@show("[INFO] Training ...")
 n_epochs = 100
 for i in 1:n_epochs
     Flux.train!(loss, params(m),train_set,opt, cb=evalcb)
