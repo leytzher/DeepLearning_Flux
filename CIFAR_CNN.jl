@@ -69,8 +69,8 @@ function make_minibatch(X,Y,batch_size)
 end
 
 # Create minibatches
-train_set = make_minibatch(X_train,Y_train,128);
-test_set = make_minibatch(X_test,Y_test,1);
+train_set = gpu.(make_minibatch(X_train,Y_train,128))
+test_set = gpu.(make_minibatch(X_test,Y_test,1))
 
 
 # VGG16
@@ -125,7 +125,19 @@ model() = Chain(
 m = model()
 
 loss(x,y) = crossentropy(m(x),y)
-accuracy(x,y) = mean(onecold(m(x),1:10) .== onecold(y,1:10))
+
+# Calculate accuracy
+function accuracy(x)
+    yhat = [onecold(m(x[i][1]),1:10) for i in 1:size(x)[1]]
+    yact = [onecold(x[i][2],1:10) for i in 1:size(x)[1]]
+    return mean(yhat .== yact)
+end
+
+evalcb = throttle(()-> @show(accuracy(test_set)),10)
 
 opt = ADAM()
-Flux.train!(loss, params(m),train_set,opt)
+
+n_epochs = 100
+for i in 1:n_epochs
+    Flux.train!(loss, params(m),train_set,opt, cb=evalcb)
+end
