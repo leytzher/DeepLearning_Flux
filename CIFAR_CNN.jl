@@ -72,7 +72,7 @@ end
 # Create minibatches
 train_set = gpu.(make_minibatch(X_train,Y_train,128))
 test_set = gpu.(make_minibatch(X_test,Y_test,1))
-allowscalar(false)
+# allowscalar(false)
 
 # VGG16
 @show("[INFO] Building CNN...")
