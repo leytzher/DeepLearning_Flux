@@ -1,3 +1,3 @@
-## Deep Learning using Flux
+## Deep Learning using Julia
 
-Implementation of deep learning models using Flux.jl
+Implementation of deep learning models using Julia.
