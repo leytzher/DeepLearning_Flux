@@ -38,5 +38,16 @@ function createMask(filename)
     return img .* mask
 end
 
+# Get all xml files in directory
+fnames = glob("*.xml","./ICDAR2019_cTDaR/training/TRACKA/ground_truth/")
 
-createMask("icdar2019/ICDAR2019_cTDaR/training/TRACKA/ground_truth/cTDaR_t10569.xml")
+# Create mask for each file in directory
+for f in fnames
+    filename = replace(f,".xml"=>"_mask.png")
+    try
+        m = createMask(f)
+        save(filename,m)
+    catch
+        println(filename)
+    end
+end
