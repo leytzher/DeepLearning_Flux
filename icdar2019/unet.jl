@@ -23,7 +23,7 @@ function preprocess(imlist)
         im = reshape(im,256,256,1,:)  # Reshape array
         append!(imageArray,im)
     end
-    return reshape(imageArray,256,256,1,:)  # Reshape whole array
+    return Float32.(reshape(imageArray,256,256,1,:))  # Reshape whole array
 end
 
 @show("Converting images to arrays")
@@ -40,8 +40,10 @@ function make_partition_index(X,batch_size)
 end
 
 function make_minibatch(X,Y,batch_size)
+    typeof(X)
     indices = [i for i in make_partition_index(X,batch_size)]
     minibatch_X = [X[:,:,:,indices[i][1]:indices[i][2]] for i in 1:length(indices)]
+    print(typeof(minibatch_X))
     minibatch_Y = [Y[:,:,:,indices[i][1]:indices[i][2]] for i in 1:length(indices)]
     dataset = [(minibatch_X[i],minibatch_Y[i]) for i in 1:length(indices)]
     return dataset
@@ -52,3 +54,24 @@ test_set = make_minibatch(testX,testY,8)
 
 
 @show("Build U-net")
+
+function down_block(x, filter_in, filter_out, kernel_size=(3,3),padding=(1,1), stride=(1,1))
+    c = Conv(kernel_size,filter_in=>filter_out, relu, pad=padding, stride=stride)(x)
+    c = Conv(kernel_size,filter_out=>filter_out, relu, pad=padding, stride=stride)(c)
+    p = MaxPool((2,2))(c)
+    return c,p
+end
+
+function up_block(x,skip, filter_in,filter_out,kernel_size=(3,3), padding=(1,1), stride=(1,1))
+    up = ConvTranspose((2,2))(x)
+    concat=hcat(up,skip)
+    c = Conv(kernel_size,filter_in=>filter_out,pad=padding, stride=stride)(concat)
+    c = Conv(kernel_size,filter_out=>filter_out,pad=padding, stride=stride)(c)
+    return c
+end
+
+function bottleneck(x, filter_in, filter_out, kernel_size=(3,3),padding=(1,1),stride=(1,1))
+    c = Conv(kernel_size,filter_in=>filter_out, relu, pad=padding, stride=stride)(x)
+    c = Conv(kernel_size,filter_out=>filter_out, relu, pad=padding, stride=stride)(c)
+    return c
+end
