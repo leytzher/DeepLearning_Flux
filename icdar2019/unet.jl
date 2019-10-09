@@ -109,28 +109,7 @@ function (m::Bottleneck)(x)
 end
 @treelike Bottleneck
 
-
-
-# function up_block(x,skip, filter_in,filter_out,kernel_size=(3,3), padding=(1,1), stride=(1,1))
-#     up = ConvTranspose((2,2),filter_in=>filter_out, relu, stride=(2,2))(x)
-#     # concat=cat(up,skip;dims=4)
-#     # print(size(concat))
-#     concat = up .+ skip
-#     println(size(concat))
-#     c = Conv(kernel_size,filter_out=>filter_out,pad=padding, stride=stride)(concat)
-#     println(size(c))
-#     c = Conv(kernel_size,filter_out=>filter_out,pad=padding, stride=stride)(c)
-#     println(size(c))
-#     return c
-# end
-
-# function bottleneck(x, filter_in, filter_out, kernel_size=(3,3),padding=(1,1),stride=(1,1))
-#     c = Conv(kernel_size,filter_in=>filter_out, relu, pad=padding, stride=stride)(x)
-#     c = Conv(kernel_size,filter_out=>filter_out, relu, pad=padding, stride=stride)(c)
-#     print(typeof(c))
-#     return c
-# end
-
+# Unet
 struct UNet
     filters
 end
