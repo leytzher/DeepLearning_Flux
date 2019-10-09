@@ -56,6 +56,7 @@ test_set = make_minibatch(testX,testY,8)
 
 @show("Build U-net")
 
+# Neural Network blocks
 # Down Block
 struct DownBlock
     filter_in
@@ -71,72 +72,84 @@ function (m::DownBlock)(x)
     p = MaxPool((2,2))(c)
     return c,p
 end
-# Collect parameters:
 @treelike DownBlock
 
+# Up Block
 struct UpBlock
-
+    skip
+    filter_in
+    filter_out
+    kernel_size
+    padding
+    stride
 end
 
+function (m::UpBlock)(x)
+    up = ConvTranspose((2,2),m.filter_in=>m.filter_out, relu, stride=(2,2))(x)
+    concat = up .+ m.skip
+    c = Conv(m.kernel_size,m.filter_out=>m.filter_out,pad=m.padding, stride=m.stride)(concat)
+    c = Conv(m.kernel_size,m.filter_out=>m.filter_out,pad=m.padding, stride=m.stride)(c)
+    return c
+end
+@treelike UpBlock
+
+# Bottleneck layer
+struct Bottleneck
+    filter_in
+    filter_out
+    kernel_size
+    padding
+    stride
+end
+
+function (m::Bottleneck)(x)
+    c = Conv(m.kernel_size,m.filter_in=>m.filter_out, relu, pad=m.padding, stride=m.stride)(x)
+    c = Conv(m.kernel_size,m.filter_out=>m.filter_out, relu, pad=m.padding, stride=m.stride)(c)
+    return c
+end
+@treelike Bottleneck
 
 
 
-# function down_block(x, filter_in, filter_out, kernel_size=(3,3),padding=(1,1), stride=(1,1))
-#     c = Conv(kernel_size,filter_in=>filter_out, relu, pad=padding, stride=stride)(x)
-#     c = Conv(kernel_size,filter_out=>filter_out, relu, pad=padding, stride=stride)(c)
-#     p = MaxPool((2,2))(c)
-#     return c,p
+# function up_block(x,skip, filter_in,filter_out,kernel_size=(3,3), padding=(1,1), stride=(1,1))
+#     up = ConvTranspose((2,2),filter_in=>filter_out, relu, stride=(2,2))(x)
+#     # concat=cat(up,skip;dims=4)
+#     # print(size(concat))
+#     concat = up .+ skip
+#     println(size(concat))
+#     c = Conv(kernel_size,filter_out=>filter_out,pad=padding, stride=stride)(concat)
+#     println(size(c))
+#     c = Conv(kernel_size,filter_out=>filter_out,pad=padding, stride=stride)(c)
+#     println(size(c))
+#     return c
 # end
 
+# function bottleneck(x, filter_in, filter_out, kernel_size=(3,3),padding=(1,1),stride=(1,1))
+#     c = Conv(kernel_size,filter_in=>filter_out, relu, pad=padding, stride=stride)(x)
+#     c = Conv(kernel_size,filter_out=>filter_out, relu, pad=padding, stride=stride)(c)
+#     print(typeof(c))
+#     return c
+# end
 
-
-function up_block(x,skip, filter_in,filter_out,kernel_size=(3,3), padding=(1,1), stride=(1,1))
-    up = ConvTranspose((2,2),filter_in=>filter_out, relu, stride=(2,2))(x)
-    # concat=cat(up,skip;dims=4)
-    # print(size(concat))
-    concat = up .+ skip
-    println(size(concat))
-    c = Conv(kernel_size,filter_out=>filter_out,pad=padding, stride=stride)(concat)
-    println(size(c))
-    c = Conv(kernel_size,filter_out=>filter_out,pad=padding, stride=stride)(c)
-    println(size(c))
-    return c
+struct UNet
+    filters
 end
 
-function bottleneck(x, filter_in, filter_out, kernel_size=(3,3),padding=(1,1),stride=(1,1))
-    c = Conv(kernel_size,filter_in=>filter_out, relu, pad=padding, stride=stride)(x)
-    c = Conv(kernel_size,filter_out=>filter_out, relu, pad=padding, stride=stride)(c)
-    print(typeof(c))
-    return c
-end
-
-function unet(x)
-    filters = [64,128,256,512,1024]
-    # Down path
-    c1,p1 = down_block(x,1,filters[1])  # 256x256x1 => 128x128x64
-    c2,p2 = down_block(p1,filters[1],filters[2]) #128x128x64 => 64x64x128
-    c3,p3 = down_block(p2,filters[2],filters[3]) #64x64x128 => 32x32x256
-    c4,p4 = down_block(p3,filters[3],filters[4]) #32x32x256 => 16x16x512
-    # Bottleneck
-    bn = bottleneck(p4,filters[4],filters[5])  #16x16x512 => 16x16x1024
-    # Up Path
-    u1 = up_block(bn,c4,filters[5],filters[4]) #16x16x1024 => 32x32x512
-    u2 = up_block(u1,c3,filters[4],filters[3]) #32x32x512 => 64x64x256
-    u3 = up_block(u2,c2,filters[3],filters[2]) #64x64x256 => 128x128x128
-    u4 = up_block(u3,c1,filters[2],filters[1]) #128x128x128 => 256x256x64
-
-    output = Conv((3,3),64=>1,sigmoid)(u4)  #256x256x64 => 256x256x1
+function (m::UNet)(x)
+    c1,p1 = DownBlock(1,m.filters[1],(3,3),(1,1),(1,1))(x)
+    c2,p2 = DownBlock(m.filters[1],m.filters[2],(3,3),(1,1),(1,1))(p1)
+    c3,p3 = DownBlock(m.filters[2],m.filters[3],(3,3),(1,1),(1,1))(p2)
+    c4,p4 = DownBlock(m.filters[3],m.filters[4],(3,3),(1,1),(1,1))(p3)
+    bn = Bottleneck(m.filters[4],m.filters[5],(3,3),(1,1),(1,1))(p4)
+    u1 = UpBlock(c4,m.filters[5],m.filters[4],(3,3),(1,1),(1,1))(bn)
+    u2 = UpBlock(c3,m.filters[4],m.filters[3],(3,3),(1,1),(1,1))(u1)
+    u3 = UpBlock(c2,m.filters[3],m.filters[2],(3,3),(1,1),(1,1))(u2)
+    u4 = UpBlock(c1,m.filters[2],m.filters[1],(3,3),(1,1),(1,1))(u3)
+    output = Conv((3,3),m.filters[1]=>1,sigmoid)(u4)
     return output
 end
+@treelike UNet
+# Build model
+model() = Chain(UNet([64,128,256,512,1024]))
 
-
-model() = Chain(unet)
-
-am = model()
-params(am)
-
-model() = Chain(Dense(3,3))
-
-mx = model()
-
-params(mx)
+m = model()
