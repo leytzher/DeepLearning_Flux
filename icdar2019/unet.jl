@@ -63,10 +63,15 @@ function down_block(x, filter_in, filter_out, kernel_size=(3,3),padding=(1,1), s
 end
 
 function up_block(x,skip, filter_in,filter_out,kernel_size=(3,3), padding=(1,1), stride=(1,1))
-    up = ConvTranspose((2,2))(x)
-    concat=hcat(up,skip)
-    c = Conv(kernel_size,filter_in=>filter_out,pad=padding, stride=stride)(concat)
+    up = ConvTranspose((2,2),filter_in=>filter_out, relu, stride=(2,2))(x)
+    concat=cat(up,skip;dims=4)
+    # print(size(concat))
+    # concat = up .+ skip
+    println(size(concat))
+    c = Conv(kernel_size,filter_out=>filter_out,pad=padding, stride=stride)(concat)
+    println(size(c))
     c = Conv(kernel_size,filter_out=>filter_out,pad=padding, stride=stride)(c)
+    println(size(c))
     return c
 end
 
@@ -74,4 +79,23 @@ function bottleneck(x, filter_in, filter_out, kernel_size=(3,3),padding=(1,1),st
     c = Conv(kernel_size,filter_in=>filter_out, relu, pad=padding, stride=stride)(x)
     c = Conv(kernel_size,filter_out=>filter_out, relu, pad=padding, stride=stride)(c)
     return c
+end
+
+function unet(x)
+    filters = [64,128,256,512,1024]
+    # Down path
+    c1,p1 = down_block(x,1,filters[1])  # 256x256x1 => 128x128x64
+    c2,p2 = down_block(p1,filters[1],filters[2]) #128x128x64 => 64x64x128
+    c3,p3 = down_block(p2,filters[2],filters[3]) #64x64x128 => 32x32x256
+    c4,p4 = down_block(p3,filters[3],filters[4]) #32x32x256 => 16x16x512
+    # Bottleneck
+    bn = bottleneck(p4,filters[4],filters[5])  #16x16x512 => 16x16x1024
+    # Up Path
+    u1 = up_block(bn,c4,filters[5],filters[4]) #16x16x1024 => 32x32x512
+    u2 = up_block(u1,c3,filters[4],filters[3]) #32x32x512 => 64x64x256
+    u3 = up_block(u2,c2,filters[3],filters[2]) #64x64x256 => 128x128x128
+    u4 = up_block(u3,c1,filters[2],filters[1]) #128x128x128 => 256x256x64
+
+    output = Conv((3,3),64=>1,sigmoid)(u4)  #256x256x64 => 256x256x1
+    return output
 end
