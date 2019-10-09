@@ -3,6 +3,7 @@ using Glob
 using Images
 using Base.Iterators: partition
 using Flux: onehotbatch,onecold, crossentropy, throttle
+using Flux:@treelike
 using Statistics:mean
 
 # Using only modern tables
@@ -55,18 +56,45 @@ test_set = make_minibatch(testX,testY,8)
 
 @show("Build U-net")
 
-function down_block(x, filter_in, filter_out, kernel_size=(3,3),padding=(1,1), stride=(1,1))
-    c = Conv(kernel_size,filter_in=>filter_out, relu, pad=padding, stride=stride)(x)
-    c = Conv(kernel_size,filter_out=>filter_out, relu, pad=padding, stride=stride)(c)
+# Down Block
+struct DownBlock
+    filter_in
+    filter_out
+    kernel_size
+    padding
+    stride
+end
+
+function (m::DownBlock)(x)
+    c = Conv(m.kernel_size,m.filter_in=>m.filter_out, relu, pad=m.padding, stride=m.stride)(x)
+    c = Conv(m.kernel_size,m.filter_out=>m.filter_out, relu, pad=m.padding, stride=m.stride)(c)
     p = MaxPool((2,2))(c)
     return c,p
 end
+# Collect parameters:
+@treelike DownBlock
+
+struct UpBlock
+
+end
+
+
+
+
+# function down_block(x, filter_in, filter_out, kernel_size=(3,3),padding=(1,1), stride=(1,1))
+#     c = Conv(kernel_size,filter_in=>filter_out, relu, pad=padding, stride=stride)(x)
+#     c = Conv(kernel_size,filter_out=>filter_out, relu, pad=padding, stride=stride)(c)
+#     p = MaxPool((2,2))(c)
+#     return c,p
+# end
+
+
 
 function up_block(x,skip, filter_in,filter_out,kernel_size=(3,3), padding=(1,1), stride=(1,1))
     up = ConvTranspose((2,2),filter_in=>filter_out, relu, stride=(2,2))(x)
-    concat=cat(up,skip;dims=4)
+    # concat=cat(up,skip;dims=4)
     # print(size(concat))
-    # concat = up .+ skip
+    concat = up .+ skip
     println(size(concat))
     c = Conv(kernel_size,filter_out=>filter_out,pad=padding, stride=stride)(concat)
     println(size(c))
@@ -78,6 +106,7 @@ end
 function bottleneck(x, filter_in, filter_out, kernel_size=(3,3),padding=(1,1),stride=(1,1))
     c = Conv(kernel_size,filter_in=>filter_out, relu, pad=padding, stride=stride)(x)
     c = Conv(kernel_size,filter_out=>filter_out, relu, pad=padding, stride=stride)(c)
+    print(typeof(c))
     return c
 end
 
@@ -99,3 +128,15 @@ function unet(x)
     output = Conv((3,3),64=>1,sigmoid)(u4)  #256x256x64 => 256x256x1
     return output
 end
+
+
+model() = Chain(unet)
+
+am = model()
+params(am)
+
+model() = Chain(Dense(3,3))
+
+mx = model()
+
+params(mx)
